@@ -3,6 +3,7 @@ package connection
 import (
 	"net/http"
 
+	"github.com/dominikpalatynski/EventService/storage"
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,14 +14,16 @@ type Event struct {
 
 type APIServer struct {
 	router *gin.Engine
+	storage *storage.StorePostgres
 }
 
-func NewAPIServer() *APIServer{
+func NewAPIServer(s *storage.StorePostgres) *APIServer{
 	r := gin.Default()
-	s := &APIServer{
+	server := &APIServer{
 		router: r,
+		storage: s,
 	}
-	return s
+	return server
 }
 
 func (s *APIServer) Run() {
@@ -36,8 +39,8 @@ func (s *APIServer) registerRoutes() {
 
 func (s *APIServer) getEvents(c *gin.Context) {
 	event := Event{
-		Name : "test",
-		Content:  "contents",
+		Name : "elo",
+		Content:  "test",
 	}
 	c.JSON(http.StatusOK, event)
 }
