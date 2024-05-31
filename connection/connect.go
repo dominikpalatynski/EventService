@@ -1,6 +1,7 @@
 package connection
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -52,16 +53,29 @@ func (s *APIServer) getEvents(c *gin.Context) {
 }
 
 func (s *APIServer) addEvent(c *gin.Context) {
-	title := new(storage.Event)
-
-	if err := c.ShouldBindJSON(title); err != nil {
-		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": err.Error()})
+	event := new(storage.Event)
+	
+	if cookie, err := c.Cookie("UserId"); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	} else {
+		fmt.Printf("cookie name: %v", cookie)
 	}
 
-	event, err := s.storage.AddEvent(title.Title)
+
+	if err := c.ShouldBindJSON(event); err != nil {
+		fmt.Print("print 1")
+		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := s.storage.AddEvent(event)
 
 	if err != nil {
+		fmt.Print("print 2")
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
 
 	c.JSON(http.StatusOK, event)

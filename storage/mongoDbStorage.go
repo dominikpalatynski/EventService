@@ -17,7 +17,7 @@ import (
 
 type Event struct {
 	ID primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
-	UserId primitive.ObjectID `json:"user_id" bson:"user_id" binding:"required"`
+	UserId string `json:"user_id" bson:"user_id" binding:"required"`
 	Title string `json:"title" binding:"required"`
 	Content json.RawMessage `json:"content,omitempty" bson:"content,omitempty"`
 }
@@ -81,16 +81,15 @@ func (s *MongoDbStorage) GetEvents() ([]Event, error){
 	return events, nil
 }
 
-func (s *MongoDbStorage) AddEvent(title string) (*Event ,error) {
-	event := new(Event)
-	event.Title = title
+func (s *MongoDbStorage) AddEvent(event *Event) (error) {
+	
 	insertResult, err := s.db.InsertOne(context.Background(), event)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	event.ID = insertResult.InsertedID.(primitive.ObjectID)
 
-	return event, nil
+	return nil
 }
