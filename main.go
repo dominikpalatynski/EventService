@@ -9,7 +9,7 @@ import (
 
 func main() {
 
-	dataBase, err := storage.NewPostgresStore()
+	dataBase, err := storage.NewMongoDbStorage()
 	if err != nil {
 		fmt.Printf("dataBase init failed %v", err)
 	}
