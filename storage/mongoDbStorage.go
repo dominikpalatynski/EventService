@@ -3,11 +3,10 @@ package storage
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"os"
 	"time"
 
-	"github.com/joho/godotenv"
+	"github.com/dominikpalatynski/EventService/util"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -29,10 +28,7 @@ type MongoDbStorage struct {
 func NewMongoDbStorage() (*MongoDbStorage, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 
-	if err := godotenv.Load(".env"); err !=nil {
-		log.Fatal("Error loading .env")
-	}
-
+	util.LoadEnv()
 
 	mongoClient, err := mongo.Connect(
 		ctx,
@@ -60,7 +56,6 @@ func NewMongoDbStorage() (*MongoDbStorage, error) {
 
 func (s *MongoDbStorage) GetEvents() ([]Event, error){
 	var events []Event
-
 	cursor, err := s.db.Find(context.Background(), bson.M{})
 
 	if err != nil {
@@ -72,7 +67,6 @@ func (s *MongoDbStorage) GetEvents() ([]Event, error){
 	for cursor.Next(context.Background()){
 		var event Event
 		if err := cursor.Decode(&event); err != nil {
-			
 			return nil, err
 		}
 		events = append(events, event)
@@ -82,7 +76,7 @@ func (s *MongoDbStorage) GetEvents() ([]Event, error){
 }
 
 func (s *MongoDbStorage) AddEvent(event *Event) (error) {
-	
+
 	insertResult, err := s.db.InsertOne(context.Background(), event)
 
 	if err != nil {
@@ -90,6 +84,29 @@ func (s *MongoDbStorage) AddEvent(event *Event) (error) {
 	}
 
 	event.ID = insertResult.InsertedID.(primitive.ObjectID)
+
+	return nil
+}
+
+func (s *MongoDbStorage) UpdateById(eventId primitive.ObjectID, updatedData map[string]interface{}) (error) {
+
+	filter := bson.M{"_id":eventId}
+	update := bson.M{"$set": updatedData}
+
+	if _, err := s.db.UpdateOne(context.Background(), filter, update); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *MongoDbStorage) DeleteById(eventId primitive.ObjectID) (error) {
+
+	filter := bson.M{"_id":eventId}
+
+	if _, err := s.db.DeleteOne(context.Background(), filter); err != nil {
+		return err
+	}
 
 	return nil
 }
