@@ -57,9 +57,17 @@ func NewMongoDbStorage() (*MongoDbStorage, error) {
 	}, nil
 }
 
-func (s *MongoDbStorage) GetEvents() ([]types.Event, error){
+func (s *MongoDbStorage) GetEvents(matcher map[string]interface{}) ([]types.Event, error){
 	var events []types.Event
-	cursor, err := s.db.Events.Find(context.Background(), bson.M{})
+	filter := bson.M{
+		"user_id": matcher["user_id"],
+		"start_date": bson.M{
+			"$gte": matcher["start_date"],
+			"$lt": matcher["end_date"],
+		},
+	}
+	
+	cursor, err := s.db.Events.Find(context.Background(), filter)
 
 	if err != nil {
 		return nil, err
@@ -78,6 +86,34 @@ func (s *MongoDbStorage) GetEvents() ([]types.Event, error){
 
         fmt.Printf("rawEvent: %+v\n", rawEvent) // Logowanie surowego dokumentu
 
+		var event types.Event
+		if err := cursor.Decode(&event); err != nil {
+			return nil, err
+		}
+		events = append(events, event)
+	}
+
+	return events, nil
+}
+
+func (s *MongoDbStorage) GetAllEvents(matcher map[string]interface{}) ([]types.Event, error){
+	var events []types.Event
+	filter := bson.M{
+		"start_date": bson.M{
+			"$gte": matcher["start_date"],
+			"$lt": matcher["end_date"],
+		},
+	}
+	
+	cursor, err := s.db.Events.Find(context.Background(), filter)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer cursor.Close(context.Background())
+
+	for cursor.Next(context.Background()){
 		var event types.Event
 		if err := cursor.Decode(&event); err != nil {
 			return nil, err

@@ -46,7 +46,23 @@ func (s *APIServer) registerRoutes() {
 }
 
 func (s *APIServer) getEvents(c *gin.Context) {
-	events, err := s.storage.GetEvents()
+
+	userId, ok := cookieReader("UserId", c)
+	
+	if ok != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": ok.Error()})
+		return
+	}
+
+	var updatedData map[string]interface{}
+
+	if ok := getDataToUpdate(c, &updatedData); ok != nil {
+		return
+	}
+	
+	updatedData["user_id"] = userId
+
+	events, err := s.storage.GetEvents(updatedData)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
