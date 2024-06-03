@@ -3,7 +3,7 @@ package connection
 import (
 	"net/http"
 
-	"github.com/dominikpalatynski/EventService/storage"
+	"github.com/dominikpalatynski/EventService/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,7 +15,7 @@ func cookieReader(variable string, ctx *gin.Context) (string, error) {
 	return cookie, nil
 }
 
-func getEventFromAPI(c *gin.Context, event *storage.Event) error{
+func getEventFromAPI(c *gin.Context, event *types.Event) error{
 	if err := c.ShouldBindJSON(event); err != nil {
 		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": err.Error()})
 	}

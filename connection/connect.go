@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/dominikpalatynski/EventService/storage"
+	"github.com/dominikpalatynski/EventService/types"
 	"github.com/dominikpalatynski/EventService/util"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -65,7 +66,7 @@ func (s *APIServer) getContents(c *gin.Context) {
 }
 
 func (s *APIServer) addEvent(c *gin.Context) {
-	event := new(storage.Event)
+	event := new(types.Event)
 	
 	userId, ok := cookieReader("UserId", c)
 	

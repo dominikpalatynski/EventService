@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/dominikpalatynski/EventService/types"
 	"github.com/dominikpalatynski/EventService/util"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -13,19 +14,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
-
-type Event struct {
-	ID primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
-	UserId string `json:"user_id" bson:"user_id" binding:"required"`
-	Title string `json:"title" binding:"required"`
-	ContentId primitive.ObjectID `json:"content,omitempty" bson:"content,omitempty"`
-}
-
-type Content struct {
-	ID primitive.ObjectID 		`json:"id,omitempty" bson:"_id,omitempty"`
-	Homework string             `json:"homework,omitempty" bson:"homework,omitempty"`
-    Note     string             `json:"note,omitempty" bson:"note,omitempty"`
-}
 
 type MongoDbStorage struct {
 	db *MonogCollections
@@ -69,8 +57,8 @@ func NewMongoDbStorage() (*MongoDbStorage, error) {
 	}, nil
 }
 
-func (s *MongoDbStorage) GetEvents() ([]Event, error){
-	var events []Event
+func (s *MongoDbStorage) GetEvents() ([]types.Event, error){
+	var events []types.Event
 	cursor, err := s.db.Events.Find(context.Background(), bson.M{})
 
 	if err != nil {
@@ -90,7 +78,7 @@ func (s *MongoDbStorage) GetEvents() ([]Event, error){
 
         fmt.Printf("rawEvent: %+v\n", rawEvent) // Logowanie surowego dokumentu
 
-		var event Event
+		var event types.Event
 		if err := cursor.Decode(&event); err != nil {
 			return nil, err
 		}
@@ -100,9 +88,9 @@ func (s *MongoDbStorage) GetEvents() ([]Event, error){
 	return events, nil
 }
 
-func (s *MongoDbStorage) AddEvent(event *Event) (error) {
+func (s *MongoDbStorage) AddEvent(event *types.Event) (error) {
 
-	initializedContent := &Content{Homework: "", Note: ""}
+	initializedContent := &types.Content{Homework: "", Note: ""}
 
 	insertedContent, err := s.db.Contents.InsertOne(context.Background(), initializedContent)
 
@@ -145,8 +133,8 @@ func (s *MongoDbStorage) DeleteEventById(eventId primitive.ObjectID) (error) {
 	return nil
 }
 
-func (s *MongoDbStorage) GetContents() ([]Content, error) {
-	var contents []Content
+func (s *MongoDbStorage) GetContents() ([]types.Content, error) {
+	var contents []types.Content
 	cursor, err := s.db.Contents.Find(context.Background(), bson.M{})
 
 	if err != nil {
@@ -156,7 +144,7 @@ func (s *MongoDbStorage) GetContents() ([]Content, error) {
 	defer cursor.Close(context.Background())
 
 	for cursor.Next(context.Background()){
-		var content Content
+		var content types.Content
 		if err := cursor.Decode(&content); err != nil {
 			return nil, err
 		}
