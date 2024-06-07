@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/dominikpalatynski/EventService/storage"
+	"github.com/dominikpalatynski/EventService/util"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -21,37 +23,54 @@ const timeFormat string = "2006-01-02T15:04:05Z"
 
 type QueueHandler struct {
 	storage *storage.MongoDbStorage
+	context *QueueContext
 }
 
 type QueueContext struct {
 	connection *amqp.Connection
 	channel *amqp.Channel
+	exchange string
+	routingKey string
 }
 
 func NewQueueHandler(s *storage.MongoDbStorage) *QueueHandler{
-	server := &QueueHandler{
-		storage: s,
+
+	ctx, err := newQueueContext()
+
+	if err != nil {
+		failOnError(err, "Failed to connect to RabbitMQ")
 	}
-	return server
+
+	return &QueueHandler{
+		storage: s,
+		context: ctx,
+	}
 }
 
-func (q *QueueHandler) StartMonitor() {
-	ticker := time.NewTicker(1 * time.Minute)
+func newQueueContext() (*QueueContext, error) {
+	util.LoadEnv()
 
-	defer ticker.Stop()
+	exchange := "delayed_exchange"
+	routingKey := "delayed_key"
+	
+	conn, err := amqp.Dial(os.Getenv("RABBITMQ_PORT"))
 
-	conn, err := amqp.Dial("amqp://admin:password@localhost:5672")
-	failOnError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
+	if err != nil {
+		return nil, err
+	}
+
 	ch, err := conn.Channel()
-	failOnError(err, "Failed to open a channel")
-	defer ch.Close()
+
+	if err != nil {
+		return nil, err
+	}
 
 	args := amqp.Table{
 		"x-delayed-type": "direct",
 	}
+
 	err = ch.ExchangeDeclare(
-		"delayed_exchange",     // name
+		exchange,     // name
 		"x-delayed-message",    // type
 		true,                   // durable
 		false,                  // auto-deleted
@@ -59,7 +78,10 @@ func (q *QueueHandler) StartMonitor() {
 		false,                  // no-wait
 		args,                   // arguments
 	)
-	failOnError(err, "Failed to declare the delayed exchange")
+
+	if err != nil {
+		return nil, err
+	}
 
 	queue, err := ch.QueueDeclare(
 		"hello",
@@ -69,34 +91,49 @@ func (q *QueueHandler) StartMonitor() {
 		false,  
 		nil,)
 	
-	  failOnError(err, "Failed to declare a queue")
+	if err != nil {
+		return nil, err
+	}
 
 	err = ch.QueueBind(
 		queue.Name,
-		"delayed_key",
-		"delayed_exchange",
+		routingKey,
+		exchange,
 		false,
 		nil,
 	)
-	failOnError(err, "Failed to bind the queue")
 
-	  ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	  defer cancel()
+	if err != nil {
+		return nil, err
+	}
+
+	return &QueueContext{
+		connection: conn,
+		channel: ch,
+		exchange: exchange,
+		routingKey: routingKey,
+	}, nil
+}
+
+func (q *QueueHandler) StartMonitor() {
+	ticker := time.NewTicker(1 * time.Minute)
+
+	defer ticker.Stop()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	  
-	  body := "Hello World!"
+	body := "Hello World!"
 
-
-	  failOnError(err, "Failed to publish a message")
-	  log.Printf(" [x] Sent %s\n", body)
 	for range ticker.C {
 		currentTime := time.Now()
 		fmt.Println("fetching events:", currentTime)
 
 		delay := int64(15 * 1000) // 2 minuty w milisekundach; możesz zmienić na dynamiczną wartość
 
-		err = ch.PublishWithContext(ctx,
-			"delayed_exchange", // exchange
-			"delayed_key",      // routing key
+		err := q.context.channel.PublishWithContext(ctx,
+			q.context.exchange, // exchange
+			q.context.routingKey,// routing key
 			false,              // mandatory
 			false,              // immediate
 			amqp.Publishing{
