@@ -9,15 +9,15 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: example
-  rabbitmq:
-    image: rabbitmq:management
-    container_name: test_rabbitmq
+  rabbitmqEnabledPlugin:
+    image: heidiks/rabbitmq-delayed-message-exchange:latest
+    container_name: test_rabbitmq_with_plugin
     ports:
       - 5672:5672
       - 15672:15672
     environment:
-      - RABBITMQ_DEFAULT_USER=michael
-      - RABBITMQ_DEFAULT_PASS=secret
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=password
   # go_event_service:
   #   build: 
   #     context: .
