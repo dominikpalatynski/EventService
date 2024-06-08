@@ -12,14 +12,10 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-
-func failOnError(err error, msg string) {
-	if err != nil {
-	  log.Panicf("%s: %s", msg, err)
-	}
-  }
-
-const timeFormat string = "2006-01-02T15:04:05Z"
+type Message struct {
+	UserId string `json:"user_id"`
+	Title string `json:"title"`
+}
 
 type QueueHandler struct {
 	storage *storage.MongoDbStorage
@@ -115,6 +111,8 @@ func newQueueContext() (*QueueContext, error) {
 	}, nil
 }
 
+
+
 func (q *QueueHandler) StartMonitor() {
 	ticker := time.NewTicker(1 * time.Minute)
 
@@ -122,37 +120,14 @@ func (q *QueueHandler) StartMonitor() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	  
-	body := "Hello World!"
-
+	
 	for range ticker.C {
 		currentTime := time.Now()
 		fmt.Println("fetching events:", currentTime)
 
-		delay := int64(15 * 1000) // 2 minuty w milisekundach; możesz zmienić na dynamiczną wartość
-
-		err := q.context.channel.PublishWithContext(ctx,
-			q.context.exchange, // exchange
-			q.context.routingKey,// routing key
-			false,              // mandatory
-			false,              // immediate
-			amqp.Publishing{
-				ContentType: "text/plain",
-				Body:        []byte(body),
-				Headers: amqp.Table{
-					"x-delay": delay,
-				},
-			})
-		failOnError(err, "Failed to publish a delayed message")
 		twoMinutesLater := currentTime.Add(2 * time.Minute)
 
-
-		filterData := map[string]interface{}{
-			"start_date": currentTime.Format(timeFormat),
-			"end_date":   twoMinutesLater.Format(timeFormat),
-		}
-
-		events, err := q.storage.GetAllEvents(filterData)
+		events, err := q.storage.GetAllEvents(createFilter(currentTime, twoMinutesLater))
 
 		if err != nil {
 			fmt.Println("Error fetching events:", err)
@@ -160,10 +135,42 @@ func (q *QueueHandler) StartMonitor() {
 		}
 
 		for _, event := range events {
-            fmt.Printf("Event Title Title: %s, currentTime: %v", event.Title, filterData["start_date"])
+			delay, err := calculcateDelay(currentTime, event.StartDate)
 
-			//ToDo
-			//Add rabbitMq sending message to notifservice
+			if err != nil {
+				log.Print("Cannot calculate delay")
+				continue
+			}
+			
+			msg, err := createByteMessage(event.UserId, event.Title)
+
+			if err != nil {
+				log.Print("Cannot create byte message")
+				continue
+			}
+
+			if err := q.sendMessage(delay, msg, ctx); err != nil {
+				log.Print("Fail during pushing in to queue")
+			} else {
+				log.Printf("Message sent succesfully at %v with delay %v", currentTime, delay / 1000)
+			}
         }
 	}
+}
+
+func (q *QueueHandler) sendMessage(delay int64, body []byte, ctx context.Context) error {
+	err := q.context.channel.PublishWithContext(ctx,
+		q.context.exchange, // exchange
+		q.context.routingKey,// routing key
+		false,              // mandatory
+		false,              // immediate
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        []byte(body),
+			Headers: amqp.Table{
+				"x-delay": delay,
+			},
+		})
+
+	return err
 }
