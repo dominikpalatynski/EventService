@@ -7,8 +7,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/dominikpalatynski/EventService/storage"
-	"github.com/dominikpalatynski/EventService/util"
+	"MonitorService/storage"
+	"MonitorService/util"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -122,12 +123,12 @@ func (q *QueueHandler) StartMonitor() {
 	defer cancel()
 	
 	for range ticker.C {
-		currentTime := time.Now()
+		currentTime := time.Now().UTC()
 		fmt.Println("fetching events:", currentTime)
 
 		twoMinutesLater := currentTime.Add(2 * time.Minute)
 
-		events, err := q.storage.GetAllEvents(createFilter(currentTime, twoMinutesLater))
+		events, err := q.storage.GetAllEvents(createFilter(currentTime, twoMinutesLater.UTC()))
 
 		if err != nil {
 			fmt.Println("Error fetching events:", err)
